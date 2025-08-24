@@ -12,57 +12,57 @@ const ModelComparisonVisualizer = () => {
     svm: {
       name: 'Support Vector Machine',
       color: '#8B5CF6',
-      accuracy: 0.7823,
-      precision: 0.8234,
-      recall: 0.7612,
-      f1: 0.7911,
-      auc: 0.8456,
+      accuracy: 0.8645,
+      precision: 0.8734,
+      recall: 0.8556,
+      f1: 0.8644,
+      auc: 0.9156,
       trainTime: 2.3,
       description: 'Effective for high-dimensional healthcare data with clear margin separation'
     },
     rf: {
       name: 'Random Forest',
       color: '#10B981',
-      accuracy: 0.8542,
-      precision: 0.8673,
-      recall: 0.8412,
-      f1: 0.8541,
-      auc: 0.9123,
+      accuracy: 0.9182,
+      precision: 0.9234,
+      recall: 0.9123,
+      f1: 0.9178,
+      auc: 0.9567,
       trainTime: 4.7,
       description: 'Ensemble method providing robust predictions with feature importance insights'
     },
     gbm: {
       name: 'Gradient Boosting',
       color: '#F59E0B',
-      accuracy: 0.8734,
-      precision: 0.8856,
-      recall: 0.8623,
-      f1: 0.8738,
-      auc: 0.9234,
+      accuracy: 0.9045,
+      precision: 0.9112,
+      recall: 0.8978,
+      f1: 0.9044,
+      auc: 0.9489,
       trainTime: 8.2,
-      description: 'Sequential boosting achieving highest accuracy through iterative refinement'
+      description: 'Sequential boosting with strong predictive performance through iterative refinement'
     },
     dl: {
       name: 'Deep Learning',
       color: '#EF4444',
-      accuracy: 0.8921,
-      precision: 0.9012,
-      recall: 0.8834,
-      f1: 0.8922,
-      auc: 0.9456,
+      accuracy: 0.8856,
+      precision: 0.8923,
+      recall: 0.8789,
+      f1: 0.8855,
+      auc: 0.9367,
       trainTime: 15.3,
       description: 'Neural network capturing complex non-linear patterns in patient data'
     },
-    knn: {
-      name: 'K-Nearest Neighbors',
+    lr: {
+      name: 'Logistic Regression',
       color: '#06B6D4',
-      accuracy: 0.7234,
-      precision: 0.7456,
-      recall: 0.7123,
-      f1: 0.7286,
-      auc: 0.7856,
-      trainTime: 0.8,
-      description: 'Instance-based learning using patient similarity for predictions'
+      accuracy: 0.8723,
+      precision: 0.8812,
+      recall: 0.8634,
+      f1: 0.8722,
+      auc: 0.9234,
+      trainTime: 1.2,
+      description: 'Linear classifier providing interpretable predictions for medical decision-making'
     }
   };
 

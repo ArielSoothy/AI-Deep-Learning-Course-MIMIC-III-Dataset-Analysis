@@ -78,7 +78,7 @@ const Footer = () => {
               </a>
               <div className="flex items-center gap-3 text-gray-300">
                 <i className="fas fa-building text-xl text-green-400"></i>
-                <span>Data Engineer at Nuvei</span>
+                <span>AI & Data Engineer at Nuvei</span>
               </div>
               <div className="flex items-center gap-3 text-gray-300">
                 <i className="fas fa-map-marker-alt text-xl text-red-400"></i>
