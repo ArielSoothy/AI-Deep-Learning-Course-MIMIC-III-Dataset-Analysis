@@ -69,7 +69,7 @@ const ModelComparisonVisualizer = () => {
   // Confusion matrix data
   const confusionMatrices = {
     original: {
-      name: 'Original KNN',
+      name: 'Original Model',
       matrix: [[160, 5], [27, 1]],
       metrics: {
         accuracy: 0.8342,
@@ -81,7 +81,7 @@ const ModelComparisonVisualizer = () => {
       }
     },
     smote: {
-      name: 'SMOTE-Enhanced KNN',
+      name: 'SMOTE-Enhanced Model',
       matrix: [[125, 40], [22, 6]],
       metrics: {
         accuracy: 0.6788,
@@ -167,7 +167,7 @@ const ModelComparisonVisualizer = () => {
       rf: [[0, 0], [0.08, 0.72], [0.18, 0.88], [0.35, 0.95], [1, 1]],
       gbm: [[0, 0], [0.06, 0.75], [0.15, 0.90], [0.32, 0.96], [1, 1]],
       dl: [[0, 0], [0.05, 0.78], [0.12, 0.92], [0.28, 0.97], [1, 1]],
-      knn: [[0, 0], [0.15, 0.58], [0.35, 0.75], [0.5, 0.85], [1, 1]]
+      lr: [[0, 0], [0.15, 0.72], [0.35, 0.85], [0.5, 0.92], [1, 1]]
     };
 
     const line = d3.line()
@@ -585,7 +585,7 @@ const ModelComparisonVisualizer = () => {
                         <li>• End-to-end learning needed</li>
                       </>
                     )}
-                    {selectedModel === 'knn' && (
+                    {selectedModel === 'lr' && (
                       <>
                         <li>• Quick baseline model</li>
                         <li>• Local pattern detection</li>
