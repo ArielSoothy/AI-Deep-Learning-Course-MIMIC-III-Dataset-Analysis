@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/AI-Deep-Learning-Essentials/',
+  base: '/AI-Deep-Learning-Course-MIMIC-III-Dataset-Analysis/',
 })
