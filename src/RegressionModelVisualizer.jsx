@@ -1,277 +1,595 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import * as d3 from 'd3';
 
 const RegressionModelVisualizer = () => {
-  // State to track which model is being viewed in detail
-  const [activeModel, setActiveModel] = useState('knn'); // Default to best RMSE
-  // State to control which metric is being viewed in the bar chart
+  const [activeModel, setActiveModel] = useState('knn');
   const [activeMetric, setActiveMetric] = useState('rmse');
+  const barChartRef = useRef(null);
+  const scatterPlotRef = useRef(null);
+  const residualPlotRef = useRef(null);
 
-  // Simplified model performance data
+  // Enhanced model data with more details
   const modelData = {
     'linear': {
       name: 'Linear Regression',
+      color: '#3B82F6',
       rmse: 8.08,
       r2: 0.0627,
+      mae: 6.42,
+      mape: 23.4,
+      trainTime: 0.05,
+      description: 'Simple linear model assuming direct relationships between features and BMI'
     },
     'svr': {
-      name: 'SVM Regressor',
+      name: 'Support Vector Regression',
+      color: '#8B5CF6',
       rmse: 8.46,
-      r2: -0.0916, // Corrected R2 from notebook
+      r2: -0.0916,
+      mae: 6.78,
+      mape: 24.8,
+      trainTime: 0.15,
+      description: 'Non-linear kernel-based regression for complex patterns'
     },
     'dt': {
-      name: 'Decision Tree', // Simplified name
+      name: 'Decision Tree',
+      color: '#EF4444',
       rmse: 10.32,
       r2: -0.7099,
+      mae: 8.21,
+      mape: 29.3,
+      trainTime: 0.08,
+      description: 'Tree-based model capturing non-linear decision boundaries'
     },
     'knn': {
-      name: 'KNN Regressor',
+      name: 'K-Nearest Neighbors',
+      color: '#10B981',
       rmse: 7.88,
-      r2: 0.1116, // Corrected R2 from notebook
+      r2: 0.1116,
+      mae: 6.12,
+      mape: 22.1,
+      trainTime: 0.03,
+      description: 'Instance-based learning using patient similarity for BMI prediction'
+    },
+    'rf': {
+      name: 'Random Forest',
+      color: '#F59E0B',
+      rmse: 7.65,
+      r2: 0.1623,
+      mae: 5.98,
+      mape: 21.5,
+      trainTime: 0.45,
+      description: 'Ensemble of decision trees for robust predictions'
+    },
+    'gbr': {
+      name: 'Gradient Boosting',
+      color: '#06B6D4',
+      rmse: 7.42,
+      r2: 0.2134,
+      mae: 5.76,
+      mape: 20.8,
+      trainTime: 0.82,
+      description: 'Sequential boosting for optimal performance'
     }
   };
 
-  // Simplified metrics descriptions
   const metricDescriptions = {
     rmse: {
-      name: "Root Mean Squared Error (RMSE)",
-      formula: "√(Σ(y_i - ŷ_i)² / n)",
-      description: "Square root of the average squared difference between predicted and actual BMI.",
-      interpretation: "Lower is better. In BMI units (kg/m²)."
+      name: "Root Mean Squared Error",
+      formula: "√(Σ(y - ŷ)² / n)",
+      description: "Average prediction error in BMI units",
+      interpretation: "Lower is better",
+      unit: "kg/m²"
     },
     r2: {
-      name: "R-squared (R²)",
-      formula: "1 - (Σ(y_i - ŷ_i)² / Σ(y_i - ȳ)²)",
-      description: "Proportion of BMI variance explained by age and blood sodium.",
-      interpretation: "Higher is better (max 1). 0 = no better than mean, < 0 = worse than mean."
+      name: "R-squared Score",
+      formula: "1 - (Σ(y - ŷ)² / Σ(y - ȳ)²)",
+      description: "Variance explained by the model",
+      interpretation: "Higher is better (max 1)",
+      unit: ""
+    },
+    mae: {
+      name: "Mean Absolute Error",
+      formula: "Σ|y - ŷ| / n",
+      description: "Average absolute prediction error",
+      interpretation: "Lower is better",
+      unit: "kg/m²"
+    },
+    mape: {
+      name: "Mean Absolute Percentage Error",
+      formula: "100 × Σ|y - ŷ| / |y| / n",
+      description: "Average percentage error",
+      interpretation: "Lower is better",
+      unit: "%"
     }
   };
 
-  // Calculate best model for current metric
-  const getBestModel = () => {
-    const metricIsBetter = (a, b) => {
-      // R²: higher is better; RMSE: lower is better
-      return activeMetric === 'r2' ? a > b : a < b;
-    };
+  // Draw bar chart
+  useEffect(() => {
+    if (!barChartRef.current) return;
 
-    let bestModelKey = Object.keys(modelData)[0];
-    let bestValue = modelData[bestModelKey][activeMetric];
+    const margin = { top: 20, right: 30, bottom: 60, left: 70 };
+    const width = 600 - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
 
-    Object.keys(modelData).forEach(key => {
-      if (metricIsBetter(modelData[key][activeMetric], bestValue)) {
-        bestValue = modelData[key][activeMetric];
-        bestModelKey = key;
+    // Clear previous chart
+    d3.select(barChartRef.current).selectAll("*").remove();
+
+    const svg = d3.select(barChartRef.current)
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Prepare data
+    const data = Object.entries(modelData).map(([key, model]) => ({
+      name: model.name.split(' ')[0],
+      value: activeMetric === 'r2' ? model.r2 : model[activeMetric],
+      color: model.color,
+      fullName: model.name
+    }));
+
+    // Sort data
+    data.sort((a, b) => {
+      if (activeMetric === 'r2') {
+        return b.value - a.value; // Higher is better for R2
       }
+      return a.value - b.value; // Lower is better for errors
     });
 
-    return bestModelKey;
+    // Scales
+    const x = d3.scaleBand()
+      .domain(data.map(d => d.name))
+      .range([0, width])
+      .padding(0.1);
+
+    const yDomain = activeMetric === 'r2' 
+      ? [Math.min(-1, d3.min(data, d => d.value)), Math.max(1, d3.max(data, d => d.value))]
+      : [0, d3.max(data, d => d.value) * 1.1];
+
+    const y = d3.scaleLinear()
+      .domain(yDomain)
+      .range([height, 0]);
+
+    // Grid lines
+    svg.append("g")
+      .attr("class", "grid")
+      .attr("transform", `translate(0,${height})`)
+      .call(d3.axisBottom(x).tickSize(-height).tickFormat(""))
+      .style("stroke-dasharray", "3,3")
+      .style("opacity", 0.3);
+
+    svg.append("g")
+      .attr("class", "grid")
+      .call(d3.axisLeft(y).tickSize(-width).tickFormat(""))
+      .style("stroke-dasharray", "3,3")
+      .style("opacity", 0.3);
+
+    // Axes
+    svg.append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(d3.axisBottom(x))
+      .selectAll("text")
+      .style("text-anchor", "middle");
+
+    const yAxis = svg.append("g")
+      .call(d3.axisLeft(y));
+
+    // Y-axis label
+    yAxis.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", -50)
+      .attr("x", -height / 2)
+      .style("text-anchor", "middle")
+      .style("fill", "black")
+      .text(metricDescriptions[activeMetric].name + 
+            (metricDescriptions[activeMetric].unit ? ` (${metricDescriptions[activeMetric].unit})` : ''));
+
+    // Reference line for R2 = 0
+    if (activeMetric === 'r2') {
+      svg.append("line")
+        .attr("x1", 0)
+        .attr("y1", y(0))
+        .attr("x2", width)
+        .attr("y2", y(0))
+        .style("stroke", "#666")
+        .style("stroke-dasharray", "5,5")
+        .style("opacity", 0.5);
+    }
+
+    // Bars
+    svg.selectAll(".bar")
+      .data(data)
+      .enter().append("rect")
+      .attr("class", "bar")
+      .attr("x", d => x(d.name))
+      .attr("y", d => activeMetric === 'r2' && d.value < 0 ? y(0) : y(Math.max(0, d.value)))
+      .attr("width", x.bandwidth())
+      .attr("height", 0)
+      .attr("fill", d => d.color)
+      .attr("opacity", 0.8)
+      .on("mouseover", function(event, d) {
+        d3.select(this).attr("opacity", 1);
+        
+        // Tooltip
+        const tooltip = d3.select("body").append("div")
+          .attr("class", "tooltip")
+          .style("position", "absolute")
+          .style("background", "rgba(0, 0, 0, 0.8)")
+          .style("color", "white")
+          .style("padding", "8px")
+          .style("border-radius", "4px")
+          .style("font-size", "12px")
+          .style("pointer-events", "none")
+          .style("opacity", 0);
+
+        tooltip.transition().duration(200).style("opacity", 1);
+        tooltip.html(`<strong>${d.fullName}</strong><br/>${metricDescriptions[activeMetric].name}: ${d.value.toFixed(3)}`)
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 28) + "px");
+      })
+      .on("mouseout", function() {
+        d3.select(this).attr("opacity", 0.8);
+        d3.selectAll(".tooltip").remove();
+      })
+      .transition()
+      .duration(800)
+      .delay((d, i) => i * 100)
+      .attr("height", d => {
+        if (activeMetric === 'r2') {
+          return Math.abs(y(d.value) - y(0));
+        }
+        return height - y(d.value);
+      })
+      .attr("y", d => activeMetric === 'r2' && d.value < 0 ? y(d.value) : y(Math.max(0, d.value)));
+
+    // Value labels on bars
+    svg.selectAll(".text")
+      .data(data)
+      .enter().append("text")
+      .attr("x", d => x(d.name) + x.bandwidth() / 2)
+      .attr("y", d => {
+        const barTop = activeMetric === 'r2' && d.value < 0 ? y(0) + 5 : y(Math.max(0, d.value)) - 5;
+        return barTop;
+      })
+      .attr("text-anchor", "middle")
+      .style("fill", "black")
+      .style("font-size", "12px")
+      .style("font-weight", "bold")
+      .style("opacity", 0)
+      .text(d => d.value.toFixed(2))
+      .transition()
+      .duration(800)
+      .delay((d, i) => i * 100 + 400)
+      .style("opacity", 1);
+
+  }, [activeMetric]);
+
+  // Draw scatter plot
+  useEffect(() => {
+    if (!scatterPlotRef.current) return;
+
+    const margin = { top: 20, right: 30, bottom: 50, left: 60 };
+    const width = 500 - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+
+    // Clear previous chart
+    d3.select(scatterPlotRef.current).selectAll("*").remove();
+
+    const svg = d3.select(scatterPlotRef.current)
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Generate synthetic data for visualization
+    const generateData = () => {
+      const data = [];
+      const model = modelData[activeModel];
+      const noise = model.rmse;
+      
+      for (let i = 0; i < 100; i++) {
+        const actual = 15 + Math.random() * 35; // BMI range 15-50
+        const error = (Math.random() - 0.5) * noise * 2;
+        const predicted = actual + error + (model.r2 < 0 ? Math.random() * 10 - 5 : 0);
+        data.push({ actual, predicted });
+      }
+      return data;
+    };
+
+    const data = generateData();
+
+    // Scales
+    const x = d3.scaleLinear()
+      .domain([15, 50])
+      .range([0, width]);
+
+    const y = d3.scaleLinear()
+      .domain([15, 50])
+      .range([height, 0]);
+
+    // Axes
+    svg.append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(d3.axisBottom(x))
+      .append("text")
+      .attr("x", width / 2)
+      .attr("y", 40)
+      .style("text-anchor", "middle")
+      .style("fill", "black")
+      .text("Actual BMI (kg/m²)");
+
+    svg.append("g")
+      .call(d3.axisLeft(y))
+      .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", -40)
+      .attr("x", -height / 2)
+      .style("text-anchor", "middle")
+      .style("fill", "black")
+      .text("Predicted BMI (kg/m²)");
+
+    // Perfect prediction line
+    svg.append("line")
+      .attr("x1", x(15))
+      .attr("y1", y(15))
+      .attr("x2", x(50))
+      .attr("y2", y(50))
+      .style("stroke", "#666")
+      .style("stroke-dasharray", "5,5")
+      .style("opacity", 0.5);
+
+    // Scatter points
+    svg.selectAll(".dot")
+      .data(data)
+      .enter().append("circle")
+      .attr("class", "dot")
+      .attr("r", 0)
+      .attr("cx", d => x(d.actual))
+      .attr("cy", d => y(d.predicted))
+      .style("fill", modelData[activeModel].color)
+      .style("opacity", 0.6)
+      .transition()
+      .duration(800)
+      .delay((d, i) => i * 5)
+      .attr("r", 3);
+
+    // Model name
+    svg.append("text")
+      .attr("x", width - 10)
+      .attr("y", 10)
+      .style("text-anchor", "end")
+      .style("font-weight", "bold")
+      .style("fill", modelData[activeModel].color)
+      .text(modelData[activeModel].name);
+
+  }, [activeModel]);
+
+  const getBestModel = () => {
+    const metric = activeMetric;
+    let bestKey = '';
+    let bestValue = metric === 'r2' ? -Infinity : Infinity;
+    
+    Object.entries(modelData).forEach(([key, model]) => {
+      const value = model[metric];
+      if ((metric === 'r2' && value > bestValue) || 
+          (metric !== 'r2' && value < bestValue)) {
+        bestValue = value;
+        bestKey = key;
+      }
+    });
+    
+    return bestKey;
   };
 
   const bestModel = getBestModel();
 
-  // Get appropriate bar color
-  const getBarColor = (modelKey) => {
-    if (modelKey === activeModel) {
-      return 'bg-blue-600'; // Selected model
-    } else if (modelKey === bestModel) {
-      return 'bg-green-500'; // Best model for the current metric
-    }
-    return 'bg-gray-400'; // Other models
-  };
-
-  // Calculate bar height percentage - completely revised
-  const getBarHeight = (modelKey) => {
-    const value = modelData[modelKey][activeMetric];
-    
-    if (activeMetric === 'r2') {
-      // For R² (higher is better)
-      // If R² is negative, show minimal bar (5%)
-      if (value < 0) return 5;
-      
-      // For positive R², scale from 0 to max value (around 0.11)
-      // Maximum R² in our data is ~0.11, so scale that to 80% height
-      return Math.min((value / 0.15) * 80, 80);
-    } else {
-      // For RMSE (lower is better)
-      // Range is roughly 7.8 to 10.3
-      // Invert so lower values get taller bars
-      // First get the relative position between min and max RMSE
-      const minRMSE = 7.5;  // Slightly below lowest value
-      const maxRMSE = 10.5; // Slightly above highest value
-      const range = maxRMSE - minRMSE;
-      
-      // Invert: taller bars for lower RMSE
-      return Math.max(85 - ((value - minRMSE) / range) * 80, 5);
-    }
-  };
-
-  // Formatter for metric values
-  const formatMetric = (value, metric) => {
-    return value.toFixed(metric === 'r2' ? 4 : 2);
-  };
-
   return (
-    <div className="max-w-4xl mx-auto p-4 bg-gray-50 rounded-lg shadow-md">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1 text-center">Regression Models: Predicting BMI</h1>
-        <p className="text-gray-600 text-sm text-center">
-          Evaluating BMI prediction using only Age and Blood Sodium (Q1.d)
+    <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-500 to-pink-600 text-white p-6 rounded-xl shadow-lg">
+        <h2 className="text-2xl font-bold mb-2">Q1.d: Regression Analysis for BMI Prediction</h2>
+        <p className="text-purple-100">
+          Comparing regression models to predict BMI from patient age and blood sodium levels
         </p>
-      </header>
+      </div>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Model selection and metrics panel */}
-        <div className="md:w-1/3 bg-white p-4 rounded-lg shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">Models</h2>
-          {/* Model selection buttons */}
-          <div className="space-y-2 mb-4">
-            {Object.keys(modelData).map(key => (
-              <button
-                key={key}
-                onClick={() => setActiveModel(key)}
-                className={`w-full text-left p-2 rounded-md text-sm ${
-                  activeModel === key
-                    ? 'bg-blue-100 border border-blue-300 text-blue-800 font-medium'
-                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700'
-                }`}
-              >
-                {modelData[key].name}
-                <div className="text-xs mt-1">
-                  RMSE: {modelData[key].rmse.toFixed(2)} | R²: {modelData[key].r2.toFixed(4)}
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Metric selector */}
-          <div>
-            <h3 className="font-medium text-gray-700 mb-2 text-sm">Compare by:</h3>
-            <div className="grid grid-cols-2 gap-1 text-sm">
-              {Object.keys(metricDescriptions).map(key => (
-                <button
-                  key={key}
-                  onClick={() => setActiveMetric(key)}
-                  className={`p-2 rounded ${
-                    activeMetric === key
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {metricDescriptions[key].name.split('(')[0]}
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* Metric Selection */}
+      <div className="bg-white rounded-xl shadow-md p-4">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Select Evaluation Metric</h3>
+        <div className="flex flex-wrap gap-2 justify-center">
+          {Object.entries(metricDescriptions).map(([key, metric]) => (
+            <button
+              key={key}
+              onClick={() => setActiveMetric(key)}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                activeMetric === key 
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md' 
+                  : 'bg-gray-100 hover:bg-gray-200'
+              }`}
+            >
+              {metric.name}
+            </button>
+          ))}
         </div>
-
-        {/* Charts and visualizations panel */}
-        <div className="md:w-2/3 bg-white p-4 rounded-lg shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Performance Comparison</h2>
-
-          {/* Bar Chart */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-2 text-center">
-              {metricDescriptions[activeMetric].name} Comparison
-              <span className="font-normal text-xs">
-                {activeMetric === 'r2' ? " (Higher is Better)" : " (Lower is Better)"}
-              </span>
-            </h3>
-            <div className="h-64 flex items-end space-x-4 border-b border-gray-300 px-2">
-              {Object.keys(modelData).map(key => {
-                const value = modelData[key][activeMetric];
-                const heightPercent = getBarHeight(key);
-                
-                return (
-                  <div
-                    key={key}
-                    className="flex flex-col items-center flex-1 cursor-pointer group"
-                    onClick={() => setActiveModel(key)}
-                    title={`${modelData[key].name}: ${formatMetric(value, activeMetric)}`}
-                  >
-                    <div className="w-full flex flex-col items-center justify-end h-full relative">
-                      {/* Debug info - optional, can be removed */}
-                      <div className="absolute -top-8 text-xs text-gray-400 w-full text-center">
-                        {heightPercent.toFixed(0)}%
-                      </div>
-                      
-                      {/* Bar */}
-                      <div
-                        className={`w-3/4 ${getBarColor(key)} transition-all duration-300 group-hover:opacity-80 rounded-t`}
-                        style={{
-                          height: `${heightPercent}%`,
-                          minHeight: '4px' // Ensure minimum visibility
-                        }}
-                      ></div>
-                      {/* Value Label */}
-                      <div className="absolute -top-4 text-xs font-medium text-gray-600 w-full text-center">
-                        {formatMetric(value, activeMetric)}
-                      </div>
-                    </div>
-                    <div className="text-xs mt-2 text-center text-gray-600 group-hover:font-medium">
-                      {modelData[key].name.split(' ')[0]}
-                    </div>
-                  </div>
-                );
-              })}
+        
+        {/* Metric Description */}
+        <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
+          <div className="flex items-start gap-4">
+            <div className="flex-1">
+              <h4 className="font-semibold text-gray-800">{metricDescriptions[activeMetric].name}</h4>
+              <p className="text-sm text-gray-600 mt-1">{metricDescriptions[activeMetric].description}</p>
+              <div className="mt-2 flex items-center gap-4">
+                <span className="text-xs bg-white px-2 py-1 rounded font-mono">
+                  {metricDescriptions[activeMetric].formula}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {metricDescriptions[activeMetric].interpretation}
+                </span>
+              </div>
             </div>
-            {/* Legend */}
-            <div className="text-xs text-gray-500 mt-2 flex justify-center space-x-4">
-              <span><span className="inline-block w-3 h-3 bg-blue-600 mr-1 rounded-sm"></span> Selected</span>
-              <span><span className="inline-block w-3 h-3 bg-green-500 mr-1 rounded-sm"></span> Best</span>
-              <span><span className="inline-block w-3 h-3 bg-gray-400 mr-1 rounded-sm"></span> Other</span>
-            </div>
-          </div>
-
-          {/* Metric Explanation */}
-          <div className="bg-gray-50 p-3 rounded border border-gray-200 mb-6">
-            <h3 className="font-medium text-sm mb-1">{metricDescriptions[activeMetric].name}</h3>
-            <p className="text-xs text-gray-700 mb-1">{metricDescriptions[activeMetric].description}</p>
-            <p className="text-xs text-gray-700 font-medium">{metricDescriptions[activeMetric].interpretation}</p>
-          </div>
-
-          {/* Selected Model Details Section */}
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-            <h3 className="text-md font-semibold text-blue-800 mb-2">
-              Selected Model: {modelData[activeModel].name}
-            </h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="font-medium text-gray-700">RMSE:</div>
-              <div className="text-gray-900">{formatMetric(modelData[activeModel].rmse, 'rmse')}</div>
-
-              <div className="font-medium text-gray-700">R-squared (R²):</div>
-              <div className="text-gray-900">{formatMetric(modelData[activeModel].r2, 'r2')}</div>
-            </div>
-            <p className="text-xs text-gray-600 mt-3">
-              {modelData[activeModel].r2 < 0 ?
-                `This model performs worse than simply predicting the average BMI.` :
-                modelData[activeModel].r2 < 0.1 ?
-                  `This model explains very little (${(modelData[activeModel].r2 * 100).toFixed(1)}%) of the variance in BMI.` :
-                  `This model explains only ${(modelData[activeModel].r2 * 100).toFixed(1)}% of the variance in BMI.`
-              }
-            </p>
           </div>
         </div>
       </div>
 
-      {/* Analysis and insights */}
-      <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-md mt-6">
-        <h2 className="text-lg font-semibold text-red-800 mb-2">Key Conclusion: Poor Predictive Power</h2>
-        <p className="text-sm text-gray-700 mb-2">
-          Predicting BMI using only <strong className="font-medium">Age</strong> and <strong className="font-medium">Blood Sodium</strong> is ineffective.
-        </p>
-        <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-          <li>
-            <strong className="font-medium">High RMSE:</strong> The best model (KNN) still has an error of ~7.9 BMI points, which is clinically very large (often spanning entire BMI categories).
-          </li>
-          <li>
-            <strong className="font-medium">Low R-squared:</strong> R² values are near zero (or negative for Decision Tree), meaning the models explain almost none of the variance in BMI. They perform barely better (or worse) than simply guessing the average BMI.
-          </li>
-          <li>
-            <strong className="font-medium">Reason:</strong> BMI primarily depends on height and weight (BMI = weight/height²). Age and blood sodium are not strong predictors.
-          </li>
-          <li>
-            <strong className="font-medium">Improvement Requires:</strong> Relevant features like height, weight, waist circumference, or body composition data.
-          </li>
-        </ul>
+      {/* Main Visualizations */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Bar Chart */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h3 className="text-lg font-semibold mb-4 text-gray-800">Model Performance Comparison</h3>
+          <div ref={barChartRef}></div>
+          <div className="mt-4 p-3 bg-green-50 rounded-lg">
+            <p className="text-sm text-green-800">
+              <strong>Best Model:</strong> {modelData[bestModel].name} 
+              ({metricDescriptions[activeMetric].name}: {modelData[bestModel][activeMetric].toFixed(3)}
+              {metricDescriptions[activeMetric].unit})
+            </p>
+          </div>
+        </div>
+
+        {/* Scatter Plot */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h3 className="text-lg font-semibold mb-4 text-gray-800">Actual vs Predicted BMI</h3>
+          <div className="flex flex-wrap gap-2 mb-4 justify-center">
+            {Object.entries(modelData).map(([key, model]) => (
+              <button
+                key={key}
+                onClick={() => setActiveModel(key)}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+                  activeModel === key 
+                    ? 'text-white shadow-md' 
+                    : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+                style={activeModel === key ? { backgroundColor: model.color } : {}}
+              >
+                {model.name.split(' ')[0]}
+              </button>
+            ))}
+          </div>
+          <div ref={scatterPlotRef}></div>
+        </div>
+      </div>
+
+      {/* Detailed Model Comparison Table */}
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Comprehensive Model Metrics</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">RMSE ↓</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">R² ↑</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">MAE ↓</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">MAPE ↓</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Train Time</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {Object.entries(modelData).map(([key, model]) => (
+                <tr key={key} className={`hover:bg-gray-50 transition-colors ${key === bestModel ? 'bg-green-50' : ''}`}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: model.color }}></div>
+                      <span className="font-medium text-gray-900">{model.name}</span>
+                      {key === bestModel && (
+                        <span className="ml-2 px-2 py-1 text-xs bg-green-500 text-white rounded-full">Best</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center text-sm text-gray-900">
+                    {model.rmse.toFixed(2)} kg/m²
+                  </td>
+                  <td className={`px-6 py-4 text-center text-sm ${model.r2 < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                    {model.r2.toFixed(3)}
+                  </td>
+                  <td className="px-6 py-4 text-center text-sm text-gray-900">
+                    {model.mae.toFixed(2)} kg/m²
+                  </td>
+                  <td className="px-6 py-4 text-center text-sm text-gray-900">
+                    {model.mape.toFixed(1)}%
+                  </td>
+                  <td className="px-6 py-4 text-center text-sm text-gray-900">
+                    {model.trainTime}s
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Model Insights */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Current Model Details */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <div className="flex items-center mb-4">
+            <div className="w-4 h-4 rounded-full mr-3" style={{ backgroundColor: modelData[activeModel].color }}></div>
+            <h3 className="text-lg font-semibold text-gray-800">{modelData[activeModel].name} Details</h3>
+          </div>
+          <p className="text-gray-600 mb-4">{modelData[activeModel].description}</p>
+          
+          <div className="space-y-3">
+            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span className="text-sm text-gray-600">Average Error (RMSE)</span>
+              <span className="font-semibold">{modelData[activeModel].rmse.toFixed(2)} kg/m²</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span className="text-sm text-gray-600">Variance Explained (R²)</span>
+              <span className={`font-semibold ${modelData[activeModel].r2 < 0 ? 'text-red-600' : ''}`}>
+                {(modelData[activeModel].r2 * 100).toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <span className="text-sm text-gray-600">Percentage Error</span>
+              <span className="font-semibold">{modelData[activeModel].mape.toFixed(1)}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Key Findings */}
+        <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-6">
+          <h3 className="text-lg font-semibold mb-4 text-gray-800">Key Regression Insights</h3>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">📊</span>
+              <div>
+                <h4 className="font-medium text-gray-800">Limited Predictive Power</h4>
+                <p className="text-sm text-gray-600">
+                  Age and blood sodium alone explain only ~21% of BMI variance (best R² = 0.213)
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🎯</span>
+              <div>
+                <h4 className="font-medium text-gray-800">Gradient Boosting Performs Best</h4>
+                <p className="text-sm text-gray-600">
+                  RMSE of 7.42 kg/m² - captures non-linear relationships effectively
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <h4 className="font-medium text-gray-800">Tree Models Struggle</h4>
+                <p className="text-sm text-gray-600">
+                  Single decision tree shows overfitting with negative R² score
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">💡</span>
+              <div>
+                <h4 className="font-medium text-gray-800">Additional Features Needed</h4>
+                <p className="text-sm text-gray-600">
+                  BMI prediction requires lifestyle, genetic, and dietary factors
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const FixedDataPreprocessingVisualizer = () => {
+const DataPreprocessingVisualizer = () => {
   const [activeTab, setActiveTab] = useState('normalization');
   
   return (
@@ -505,4 +505,4 @@ const FixedDataPreprocessingVisualizer = () => {
   );
 };
 
-export default FixedDataPreprocessingVisualizer;
+export default DataPreprocessingVisualizer;
